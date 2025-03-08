@@ -21,12 +21,11 @@ Expected Outcomes:
 
 ## 2. Module-Wise Breakdown
 The project can be divided into three key modules:
-
-- 1. Data Collection Module (Backend)
+ 1. Data Collection Module (Backend)
   Purpose: Gather real-time system information about processes, CPU usage, and memory consumption.
-  2. Visualization & GUI Module (Frontend)
+ 2. Visualization & GUI Module (Frontend)
   Purpose: Display the collected data in an interactive, real-time dashboard.
-  3. Process Management Module
+ 3. Process Management Module
   Purpose: Enable administrators to control processes (terminate, adjust priority, etc.).
 
 ## 3. Functionalities
@@ -47,30 +46,30 @@ The project can be divided into three key modules:
 - Start/Restart Process → Launch or restart a process.
 - Alerts for High Resource Usage → Notify when CPU/memory crosses a threshold.
 - Implementation Example: Use system calls (kill, nice, renice) and polkit for permissions.
-### 4. Technology Recommendations
+## 4. Technology Recommendations
 - Module	Technology Choices	Reasoning
 - Backend (Data Collection)	C++, Linux system commands (ps, /proc API)	Low-level access to system processes, efficient memory usage.
 - Frontend (GUI)	Qt (C++) OR React.js with Electron	Qt for native GUI; React + Electron for cross-platform flexibility.
 - Data Visualization	Qt Charts (C++) OR Recharts/D3.js (JavaScript)	Qt Charts for native GUI, Recharts for web-based visualization.
 - Process Management	Linux system calls (kill, nice)	Direct system interaction for process control.
-### 5. Execution Plan
+## 5. Execution Plan
 #### Phase 1: Setting Up the Project (Week 1-2)
-✅ Choose whether to build a desktop app (Qt) or web-based app (React + Electron).
-✅ Set up basic project structure and integrate real-time data fetching from /proc.
-✅ Develop a command-line prototype for data collection.
+✅ Choose whether to build a desktop app (Qt) or web-based app (React + Electron).<br>
+✅ Set up basic project structure and integrate real-time data fetching from /proc.<br>
+✅ Develop a command-line prototype for data collection.<br>
 
 #### Phase 2: Implementing Core Features (Week 3-5)
-✅ Build GUI framework with process table and resource usage graphs.
-✅ Implement real-time data updates (every second).
-✅ Ensure smooth performance (optimize queries from /proc).
+✅ Build GUI framework with process table and resource usage graphs.<br>
+✅ Implement real-time data updates (every second).<br>
+✅ Ensure smooth performance (optimize queries from /proc).<br>
 
 #### Phase 3: Process Management & Enhancements (Week 6-7)
-✅ Add Kill Process, Change Priority functions.
-✅ Implement sorting, filtering, and alerts for high CPU/memory usage.
-✅ Fine-tune UI for better user experience.
+✅ Add Kill Process, Change Priority functions.<br>
+✅ Implement sorting, filtering, and alerts for high CPU/memory usage.<br>
+✅ Fine-tune UI for better user experience.<br>
 
 #### Phase 4: Testing & Deployment (Week 8)
-✅ Conduct stress testing with heavy CPU load.
-✅ Optimize for low resource consumption.
-✅ Package for deployment (AppImage for Linux, or Electron for cross-platform).
+✅ Conduct stress testing with heavy CPU load.<br>
+✅ Optimize for low resource consumption.<br>
+✅ Package for deployment (AppImage for Linux, or Electron for cross-platform).<br>
 

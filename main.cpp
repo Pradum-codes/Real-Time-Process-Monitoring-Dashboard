@@ -7,6 +7,8 @@
 #include "imgui_impl_opengl3.h"
 #include "process_list.h"
 #include "system_metrics.h"
+#include <signal.h>
+#include <unistd.h>
 
 // ---------------------- Error Callback ----------------------
 void glfw_error_callback(int error, const char* description) {
@@ -15,10 +17,38 @@ void glfw_error_callback(int error, const char* description) {
 
 // ---------------------- Global Variables ----------------------
 static int selected_pid = -1; // Selected Process ID
+static ProcessInfo selected_process;
 static char search_query[128] = ""; // Search query
 
 float cpu_usage = get_cpu_usage();
 float memory_usage = get_memory_usage();
+
+// ----------------------killing a proces -------------------------
+bool kill_process(int pid) {
+    // Check if process exists
+    if (kill(pid, 0) == -1) {
+        perror("Error: Process does not exist or insufficient permissions");
+        return false;
+    }
+
+    std::cout << "Attempting to kill PID: " << pid << std::endl;
+
+    // First try to terminate gracefully
+    if (kill(pid, SIGTERM) == 0) {  
+        std::cout << "Process terminated gracefully." << std::endl; 
+        return true;
+    }
+
+    // If still running, force kill
+    sleep(1); // Give some time for SIGTERM to take effect
+    if (kill(pid, SIGKILL) == 0) {  
+        std::cout << "Process forcefully killed." << std::endl; 
+        return true;
+    }
+
+    perror("Error: Failed to kill process");
+    return false;
+}
 
 
 // ---------------------- Render Process List ----------------------
@@ -54,6 +84,7 @@ void render_process_list(std::vector<ProcessInfo>& processes) {
             bool is_selected = (process.pid == selected_pid);
             if (ImGui::Selectable(std::to_string(process.pid).c_str(), is_selected, ImGuiSelectableFlags_SpanAllColumns)) {
                 selected_pid = process.pid;
+                selected_process = process;
             }
 
             ImGui::TableSetColumnIndex(1);
@@ -76,8 +107,6 @@ void render_process_list(std::vector<ProcessInfo>& processes) {
 
 // ---------------------- Render Process Details ----------------------
 void render_process_details(std::vector<ProcessInfo>& processes) {
-    ImGui::Begin("Process Details");
-
     // Check if processes list is empty or no process is selected
     if (processes.empty() || selected_pid == -1) {
         ImGui::Text("No process selected or process list is empty.");
@@ -85,19 +114,58 @@ void render_process_details(std::vector<ProcessInfo>& processes) {
         return;
     }
 
-    // Find the selected process
-    auto it = std::find_if(processes.begin(), processes.end(), [](const ProcessInfo& p) { return p.pid == selected_pid; });
-    if (it != processes.end()) {
+    if (selected_pid != -1) {
+        ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
+        ImGui::SetNextWindowFocus();
+        ImGui::Begin("Process Details", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
         ImGui::Separator();
         ImGui::Text("Selected Process Details:");
-        ImGui::Text("PID: %d", it->pid);
-        ImGui::Text("Name: %s", it->name.c_str());
-        ImGui::Text("State: %s", it->state.c_str());
-        ImGui::Text("Memory: %s", it->memory.empty() ? "N/A" : it->memory.c_str());
-        ImGui::Text("Threads: %s", it->threads.empty() ? "N/A" : it->threads.c_str());
-    } else {
-        ImGui::Text("Selected process not found.");
-    }
+        ImGui::Text("PID: %d", selected_process.pid);
+        ImGui::Text("Name: %s", selected_process.name.c_str());
+        ImGui::Text("State: %s", selected_process.state.c_str());
+        ImGui::Text("Memory: %s", selected_process.memory.empty() ? "N/A" : selected_process.memory.c_str());
+        ImGui::Text("Threads: %s", selected_process.threads.empty() ? "N/A" : selected_process.threads.c_str());
+
+        ImGui::Separator();
+
+        static bool show_popup = false;
+        static auto popup_start_time = std::chrono::steady_clock::now();
+
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red color
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.0f, 0.0f, 1.0f)); // Darker red when hovered
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.0f, 0.0f, 1.0f));
+
+        if (ImGui::Button("Kill Process")) {
+            if (kill_process(selected_process.pid)) {
+                show_popup = true;
+                popup_start_time = std::chrono::steady_clock::now();
+            }
+        }
+
+        ImGui::PopStyleColor(3);
+
+        // Show popup if active
+        if (show_popup) {
+            ImGui::SetNextWindowSize(ImVec2(300, 100));
+            ImGui::Begin("Notification", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+
+            ImGui::Text("Process killed successfully!");
+
+            // Check if 5 seconds have passed
+            if (std::chrono::steady_clock::now() - popup_start_time > std::chrono::seconds(5)) {
+                show_popup = false;  // Hide popup
+            }
+
+            ImGui::End();
+        }
+
+
+        ImGui::Separator();
+        
+        } else {
+            ImGui::Text("Selected process not found.");
+        }
 
     // Close button
     if (ImGui::Button("Close")) {

@@ -55,11 +55,12 @@ bool kill_process(int pid) {
 void render_process_list(std::vector<ProcessInfo>& processes) {
 
     // Setup Table with Columns
-    if (ImGui::BeginTable("ProcessTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable)) {
+    if (ImGui::BeginTable("ProcessTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable)) {
         ImGui::TableSetupColumn("PID", ImGuiTableColumnFlags_WidthFixed, 80.0f);
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 700.0f);
         ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed, 200.0f);
         ImGui::TableSetupColumn("Memory", ImGuiTableColumnFlags_WidthFixed, 300.0f);
+        ImGui::TableSetupColumn("CPU Usage", ImGuiTableColumnFlags_WidthFixed, 300.0f);
         ImGui::TableSetupColumn("Threads", ImGuiTableColumnFlags_WidthFixed, 80.0f);
         ImGui::TableHeadersRow(); // Header row
 
@@ -97,7 +98,11 @@ void render_process_list(std::vector<ProcessInfo>& processes) {
             ImGui::TextUnformatted(process.memory.empty() ? "N/A" : process.memory.c_str());
 
             ImGui::TableSetColumnIndex(4);
+            ImGui::Text("%.2f%%", process.cpu_usage);
+        
+            ImGui::TableSetColumnIndex(5);
             ImGui::TextUnformatted(process.threads.empty() ? "N/A" : process.threads.c_str());
+        
         }
 
         ImGui::EndTable();
@@ -235,11 +240,45 @@ int main() {
         // --- Search Box ---
         ImGui::InputText("Search", search_query, IM_ARRAYSIZE(search_query));
         ImGui::Separator();
-
-        // Display at top
-        ImGui::Text("CPU Usage: %.2f%%", cpu_usage);
-        ImGui::Text("Memory Usage: %.2f%%", memory_usage);
+        
+        // --- CPU and Memory Usage Bar Graph ---
+        ImGui::Text("CPU Usage:");
         ImGui::Separator();
+        float cpu_usage_normalized = cpu_usage / 100.0f; // Normalize CPU usage to [0, 1]
+        ImVec2 bar_size = ImVec2(200, 30); // Width and height of the bar
+        ImGui::ProgressBar(cpu_usage_normalized, bar_size, "");
+        ImGui::SameLine();
+        ImGui::Text("%.2f%%", cpu_usage);
+
+        ImGui::Separator();
+
+        ImGui::Text("Memory Usage:");
+        ImGui::Separator();
+        float memory_usage_normalized = memory_usage / 100.0f; // Normalize memory usage to [0, 1]
+        ImVec2 memory_bar_size = ImVec2(200, 30); // Width and height of the bar
+        ImGui::ProgressBar(memory_usage_normalized, memory_bar_size, "");
+        ImGui::SameLine();
+        ImGui::Text("%.2f%%", memory_usage);
+        ImGui::Separator();
+
+        if (ImGui::Button("Sort by CPU Usage")) {
+            std::sort(processes.begin(), processes.end(), 
+                [](const ProcessInfo& a, const ProcessInfo& b) {
+                    return a.cpu_usage > b.cpu_usage; // Sort in descending order
+                });
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Sort by Memory Usage")) {
+            std::sort(processes.begin(), processes.end(), 
+                [](const ProcessInfo& a, const ProcessInfo& b) {
+                    // Handle non-numeric or empty memory values
+                    long memory_a = a.memory.empty() ? 0 : std::stol(a.memory);
+                    long memory_b = b.memory.empty() ? 0 : std::stol(b.memory);
+                    return memory_a > memory_b; // Sort in descending order
+                });
+        }        
 
         // --- Render List ---
         render_process_list(processes);

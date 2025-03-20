@@ -4,6 +4,7 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <unistd.h>
 
 struct ProcessInfo {
     int pid;
@@ -11,14 +12,62 @@ struct ProcessInfo {
     std::string state;
     std::string memory;
     std::string threads;
+    float cpu_usage = 0.0f;
 };
 
 bool is_number(const std::string& s) {
     return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
 }
 
+#include <unistd.h> // For sysconf
+
+float calculate_cpu_usage(int pid, long system_uptime) {
+    std::ifstream stat_file("/proc/" + std::to_string(pid) + "/stat");
+    if (!stat_file) return 0.0f;
+
+    std::string line;
+    std::getline(stat_file, line);
+    std::istringstream iss(line);
+
+    std::string token;
+    int field_count = 0;
+    long utime = 0, stime = 0, starttime = 0;
+
+    // Parse the /proc/[pid]/stat file
+    while (iss >> token) {
+        field_count++;
+        if (field_count == 14) utime = std::stol(token); // User mode time
+        else if (field_count == 15) stime = std::stol(token); // Kernel mode time
+        else if (field_count == 22) starttime = std::stol(token); // Start time
+    }
+
+    // Get clock ticks per second
+    long hertz = sysconf(_SC_CLK_TCK);
+
+    // Calculate total time spent by the process
+    long total_time = utime + stime;
+
+    // Calculate seconds the process has been running
+    float seconds = system_uptime - (starttime / hertz);
+
+    // Avoid division by zero
+    if (seconds <= 0) return 0.0f;
+
+    // Calculate CPU usage as a percentage
+    return 100.0f * ((total_time / static_cast<float>(hertz)) / seconds);
+}
+
 std::vector<ProcessInfo> get_process_list() {
     std::vector<ProcessInfo> processes;
+
+    // Read system uptime from /proc/uptime
+    std::ifstream uptime_file("/proc/uptime");
+    if (!uptime_file) return processes;
+
+    std::string uptime_line;
+    std::getline(uptime_file, uptime_line);
+    long system_uptime = std::stol(uptime_line.substr(0, uptime_line.find(' ')));
+
     for (const auto& entry : std::filesystem::directory_iterator("/proc")) {
         if (!entry.is_directory()) continue;
         std::string filename = entry.path().filename();
@@ -38,10 +87,14 @@ std::vector<ProcessInfo> get_process_list() {
                 proc.state = line.substr(7);
             } else if (line.rfind("VmSize:", 0) == 0) {
                 proc.memory = line.substr(8);
-            } else if (line.rfind("Threads:", 0) == 0) { // Fixed typo here
+            } else if (line.rfind("Threads:", 0) == 0) {
                 proc.threads = line.substr(8);
             }
         }
+
+        // Calculate CPU usage for the process
+        proc.cpu_usage = calculate_cpu_usage(pid, system_uptime);
+
         processes.push_back(proc);
     }
     return processes;

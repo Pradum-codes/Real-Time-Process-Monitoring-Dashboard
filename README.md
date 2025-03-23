@@ -73,3 +73,8 @@ The project can be divided into three key modules:
 ✅ Optimize for low resource consumption.<br>
 ✅ Package for deployment (AppImage for Linux, or Electron for cross-platform).<br>
 
+Compilation Code
+```bash
+g++ main.cpp imgui_impl_glfw.cpp imgui_impl_opengl3.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp glad/glad.c -I. -lglfw -ldl -lGL -std=c++17 -o dashboard
+```
+

@@ -4,7 +4,7 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
-#include <unistd.h>
+#include <unistd.h>  //for sys_conf()
 
 struct ProcessInfo {
     int pid;
@@ -18,8 +18,6 @@ struct ProcessInfo {
 bool is_number(const std::string& s) {
     return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
 }
-
-#include <unistd.h> // For sysconf
 
 float calculate_cpu_usage(int pid, long system_uptime) {
     std::ifstream stat_file("/proc/" + std::to_string(pid) + "/stat");
@@ -41,20 +39,25 @@ float calculate_cpu_usage(int pid, long system_uptime) {
         else if (field_count == 22) starttime = std::stol(token); // Start time
     }
 
+    
+    
     // Get clock ticks per second
     long hertz = sysconf(_SC_CLK_TCK);
-
-    // Calculate total time spent by the process
-    long total_time = utime + stime;
-
+    // get the core_count
+    int core_count = sysconf(_SC_NPROCESSORS_ONLN);
+    
+    // Calculate total time spent by the process (in seconds)
+    float total_time_secs = (utime + stime) / static_cast<float>(hertz);
+    
     // Calculate seconds the process has been running
-    float seconds = system_uptime - (starttime / hertz);
-
-    // Avoid division by zero
-    if (seconds <= 0) return 0.0f;
-
+    float process_uptime = system_uptime - (starttime / static_cast<float>(hertz));
+    
+    // Avoid division by zero or negative values (e.g., process just started or invalid values)
+    if (process_uptime <= 0) return 0.0f;
+    
     // Calculate CPU usage as a percentage
-    return 100.0f * ((total_time / static_cast<float>(hertz)) / seconds);
+    float cpu_usage = 100.0f * (total_time_secs / process_uptime);
+    return cpu_usage /= core_count;
 }
 
 std::vector<ProcessInfo> get_process_list() {

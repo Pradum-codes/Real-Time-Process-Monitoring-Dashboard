@@ -19,6 +19,7 @@ void glfw_error_callback(int error, const char* description) {
 static int selected_pid = -1; // Selected Process ID
 static ProcessInfo selected_process;
 static char search_query[128] = ""; // Search query
+double cpu_threshold = 0;
 
 float cpu_usage = get_cpu_usage();
 float memory_usage = get_memory_usage();
@@ -52,7 +53,7 @@ bool kill_process(int pid) {
 
 
 // ---------------------- Render Process List ----------------------
-void render_process_list(std::vector<ProcessInfo>& processes) {
+void render_process_list(std::vector<ProcessInfo>& processes, double cpu_threshold) {
 
     // Setup Table with Columns
     if (ImGui::BeginTable("ProcessTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable)) {
@@ -81,28 +82,36 @@ void render_process_list(std::vector<ProcessInfo>& processes) {
             ImGui::TableNextRow(); // Next row
 
             // Individual Columns
-            ImGui::TableSetColumnIndex(0);
-            bool is_selected = (process.pid == selected_pid);
-            if (ImGui::Selectable(std::to_string(process.pid).c_str(), is_selected, ImGuiSelectableFlags_SpanAllColumns)) {
-                selected_pid = process.pid;
-                selected_process = process;
-            }
 
-            ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(process.name.c_str());
+            bool highlight = process.cpu_usage > cpu_threshold;
+            ImVec4 row_color = highlight ? ImVec4(1.0f, 0.0f, 0.0f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_Text);
 
-            ImGui::TableSetColumnIndex(2);
-            ImGui::TextUnformatted(process.state.c_str());
+            
 
-            ImGui::TableSetColumnIndex(3);
-            ImGui::TextUnformatted(process.memory.empty() ? "N/A" : process.memory.c_str());
+                ImGui::TableSetColumnIndex(0);
+                bool is_selected = (process.pid == selected_pid);
+                if (highlight) ImGui::PushStyleColor(ImGuiCol_Text, row_color);
+                if (ImGui::Selectable(std::to_string(process.pid).c_str(), is_selected, ImGuiSelectableFlags_SpanAllColumns)) {
+                    selected_pid = process.pid;
+                    selected_process = process;
+                }
 
-            ImGui::TableSetColumnIndex(4);
-            ImGui::Text("%.2f%%", process.cpu_usage);
-        
-            ImGui::TableSetColumnIndex(5);
-            ImGui::TextUnformatted(process.threads.empty() ? "N/A" : process.threads.c_str());
-        
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(process.name.c_str());
+
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextUnformatted(process.state.c_str());
+
+                ImGui::TableSetColumnIndex(3);
+                ImGui::TextUnformatted(process.memory.empty() ? "N/A" : process.memory.c_str());
+
+                ImGui::TableSetColumnIndex(4);
+                ImGui::Text("%.2f%%", process.cpu_usage);
+            
+                ImGui::TableSetColumnIndex(5);
+                ImGui::TextUnformatted(process.threads.empty() ? "N/A" : process.threads.c_str());
+
+                if (highlight) ImGui::PopStyleColor();
         }
 
         ImGui::EndTable();
@@ -240,6 +249,7 @@ int main() {
         // --- Search Box ---
         ImGui::InputText("Search", search_query, IM_ARRAYSIZE(search_query));
         ImGui::Separator();
+        ImGui::InputDouble("Enter a CPU threshold", &cpu_threshold, 0.1, 1.0, "%.2f");
         
         // --- CPU and Memory Usage Bar Graph ---
         ImGui::Text("CPU Usage:");
@@ -281,7 +291,7 @@ int main() {
         }        
 
         // --- Render List ---
-        render_process_list(processes);
+        render_process_list(processes, cpu_threshold);
         ImGui::End(); // End Process List Window
 
         // --- Render Details if Process Selected ---

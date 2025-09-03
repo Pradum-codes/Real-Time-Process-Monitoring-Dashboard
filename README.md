@@ -77,4 +77,59 @@ Compilation Code
 ```bash
 g++ main.cpp imgui_impl_glfw.cpp imgui_impl_opengl3.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp glad/glad.c -I. -lglfw -ldl -lGL -std=c++17 -o dashboard
 ```
+📂 Repository Structure<br>
+.<br>
+├── main.cpp                 # Application entry point<br>
+├── process_list.h           # Logic for retrieving process information<br>
+├── system_metrics.h         # Logic for system metrics (CPU, memory, etc.)<br>
+│<br>
+├── glad/                    # Glad OpenGL loader (third-party)<br>
+│<br>
+├── imgui.cpp                # Dear ImGui core (third-party)<br>
+├── imgui.h<br>
+├── imgui_draw.cpp<br>
+├── imgui_widgets.cpp<br>
+├── imgui_tables.cpp<br>
+├── imgui_internal.h<br>
+├── imgui_demo.cpp           # ImGui demo window (optional)<br>
+├── imconfig.h<br>
+├── imstb_rectpack.h         # ImGui stb headers<br>
+├── imstb_textedit.h<br>
+├── imstb_truetype.h<br>
+│<br>
+├── imgui_impl_glfw.cpp      # ImGui backend for GLFW<br>
+├── imgui_impl_glfw.h<br>
+├── imgui_impl_opengl3.cpp   # ImGui backend for OpenGL3<br>
+├── imgui_impl_opengl3.h<br>
+│<br>
+├── dashboard                # Compiled binary (ignored in clean builds)<br>
+├── imgui.ini                # ImGui runtime settings<br>
+└── README.md<br>
+
+### Note:
+The repo currently includes full ImGui and Glad sources. Long-term, these should ideally be pulled in as Git submodules instead of committing the entire third-party code.
+
+## 🛠️ Build Instructions
+### Requirements
+- C++17 compiler (GCC/Clang/MSVC)
+- CMake (>= 3.10 recommended)
+- GLFW development package
+
+```bash
+sudo dnf install glfw-devel
+```
+
+### Build
+```bash
+git clone <this-repo-url>
+cd Real-Time-Process-Monitoring-Dashboard
+mkdir build && cd build
+cmake ..
+make
+```
+
+
+Run with:
+
+./dashboard
 

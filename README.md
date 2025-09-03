@@ -117,19 +117,20 @@ The repo currently includes full ImGui and Glad sources. Long-term, these should
 
 ```bash
 sudo dnf install glfw-devel
+sudo dnf install cmake
 ```
 
-### Build
+### Clone with submodules:
+
 ```bash
-git clone <this-repo-url>
+git clone --recurse-submodules https://github.com/Pradum-codes/Real-Time-Process-Monitoring-Dashboard.git
 cd Real-Time-Process-Monitoring-Dashboard
 mkdir build && cd build
 cmake ..
 make
 ```
 
-
-Run with:
-
-./dashboard
-
+### Run with:
+```bash
+./RealTimeProcessMonitoringDashboard
+```

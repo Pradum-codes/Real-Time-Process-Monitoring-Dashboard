@@ -1,0 +1,3 @@
+/home/atomic_panda/Real-Time-Process-Monitoring-Dashboard/build/CMakeFiles/RealTimeProcessMonitoringDashboard.dir
+/home/atomic_panda/Real-Time-Process-Monitoring-Dashboard/build/CMakeFiles/edit_cache.dir
+/home/atomic_panda/Real-Time-Process-Monitoring-Dashboard/build/CMakeFiles/rebuild_cache.dir

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 #include <filesystem>
 #include <fstream>
@@ -5,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 #include <unistd.h>  //for sys_conf()
+#include <iomanip>   //for std::setprecision
 
 struct ProcessInfo {
     int pid;
@@ -15,11 +18,11 @@ struct ProcessInfo {
     float cpu_usage = 0.0f;
 };
 
-bool is_number(const std::string& s) {
+inline bool is_number(const std::string& s) {
     return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
 }
 
-float calculate_cpu_usage(int pid, long system_uptime) {
+inline float calculate_cpu_usage(int pid, long system_uptime) {
     std::ifstream stat_file("/proc/" + std::to_string(pid) + "/stat");
     if (!stat_file) return 0.0f;
 
@@ -60,7 +63,7 @@ float calculate_cpu_usage(int pid, long system_uptime) {
     return cpu_usage /= core_count;
 }
 
-std::vector<ProcessInfo> get_process_list() {
+inline std::vector<ProcessInfo> get_process_list() {
     std::vector<ProcessInfo> processes;
 
     // Read system uptime from /proc/uptime
@@ -89,7 +92,19 @@ std::vector<ProcessInfo> get_process_list() {
             } else if (line.rfind("State:", 0) == 0) {
                 proc.state = line.substr(7);
             } else if (line.rfind("VmSize:", 0) == 0) {
-                proc.memory = line.substr(8);
+                std::string memory_str = line.substr(8);
+                // Parse memory value and convert from KB to MB
+                std::istringstream memory_stream(memory_str);
+                long memory_kb = 0;
+                std::string unit;
+                if (memory_stream >> memory_kb >> unit) {
+                    double memory_mb = memory_kb / 1024.0;
+                    std::ostringstream formatted_memory;
+                    formatted_memory << std::fixed << std::setprecision(2) << memory_mb << " MB";
+                    proc.memory = formatted_memory.str();
+                } else {
+                    proc.memory = "N/A";
+                }
             } else if (line.rfind("Threads:", 0) == 0) {
                 proc.threads = line.substr(8);
             }

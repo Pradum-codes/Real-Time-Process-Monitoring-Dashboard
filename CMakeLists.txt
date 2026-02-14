@@ -9,8 +9,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # -----------------------------
 set(SOURCES
     main.cpp
+    app/process_actions.cpp
+    ui/theme.cpp
+    ui/process_table.cpp
+    ui/watchlist_tab.cpp
+    ui/main_view.cpp
+    ui/graphs_view.cpp
     process_list.h
     system_metrics.h
+    app/app_state.h
+    app/process_actions.h
+    ui/theme.h
+    ui/process_table.h
+    ui/watchlist_tab.h
+    ui/main_view.h
+    ui/graphs_view.h
 )
 
 # -----------------------------

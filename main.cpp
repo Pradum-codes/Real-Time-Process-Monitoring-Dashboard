@@ -1,6 +1,5 @@
 #include <iostream>
 #include <chrono>
-#include "glad/glad.h"
 #include <GLFW/glfw3.h>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -199,11 +198,6 @@ int main() {
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // VSync
-
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
-        return -1;
-    }
 
     // ---- ImGui Setup ----
     IMGUI_CHECKVERSION();

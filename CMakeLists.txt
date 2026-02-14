@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(RealTimeProcessMonitoringDashboard LANGUAGES C CXX)
+project(dashboard LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,20 +25,15 @@ set(IMGUI_SOURCES
     external/imgui/backends/imgui_impl_opengl3.cpp
 )
 
-# Glad loader
-set(GLAD_SOURCES external/glad/src/glad.c)
-
 add_executable(${PROJECT_NAME}
     ${SOURCES}
     ${IMGUI_SOURCES}
-    ${GLAD_SOURCES}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     external/imgui
     external/imgui/backends
-    external/glad/include
 )
 
 # Find and link GLFW

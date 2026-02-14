@@ -75,15 +75,13 @@ The project can be divided into three key modules:
 
 Compilation Code
 ```bash
-g++ main.cpp imgui_impl_glfw.cpp imgui_impl_opengl3.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp glad/glad.c -I. -lglfw -ldl -lGL -std=c++17 -o dashboard
+g++ main.cpp imgui_impl_glfw.cpp imgui_impl_opengl3.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp -I. -lglfw -ldl -lGL -std=c++17 -o dashboard
 ```
 📂 Repository Structure<br>
 .<br>
 ├── main.cpp                 # Application entry point<br>
 ├── process_list.h           # Logic for retrieving process information<br>
 ├── system_metrics.h         # Logic for system metrics (CPU, memory, etc.)<br>
-│<br>
-├── glad/                    # Glad OpenGL loader (third-party)<br>
 │<br>
 ├── imgui.cpp                # Dear ImGui core (third-party)<br>
 ├── imgui.h<br>
@@ -107,7 +105,7 @@ g++ main.cpp imgui_impl_glfw.cpp imgui_impl_opengl3.cpp imgui.cpp imgui_draw.cpp
 └── README.md<br>
 
 ### Note:
-The repo currently includes full ImGui and Glad sources. Long-term, these should ideally be pulled in as Git submodules instead of committing the entire third-party code.
+The repo currently includes full ImGui sources. Long-term, these should ideally be pulled in as Git submodules instead of committing the entire third-party code.
 
 ## 🛠️ Build Instructions
 ### Requirements

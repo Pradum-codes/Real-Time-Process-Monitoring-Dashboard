@@ -281,7 +281,7 @@
 
     .terminal-body { padding: 1rem; }
 
-    /* fake process table */
+    /* process table styles */
     .proc-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
     .proc-table th {
       color: var(--muted); text-align: left; padding: 0.3rem 0.5rem;
@@ -530,12 +530,6 @@
       font-size: 0.76rem; color: var(--muted); line-height: 1.6; margin: 0;
     }
 
-    /* ─── old screens-grid (remove) ─── */
-    .screens-grid { display: none; }
-    .screen { display: none; }
-    .screen-label { display: none; }
-
-
     /* ─── workflow ─── */
     .steps {
       display: grid;
@@ -687,13 +681,6 @@
         <a class="nav-cta" href="#start">Get Started</a>
       </div>
     </nav>
-
-    <!-- <div class="status-bar reveal">
-      <span class="status-item"><span class="dot"></span> System Online</span>
-      <span class="status-item"><span class="dot amber"></span> 128 Processes</span>
-      <span class="status-item">CPU: 34% &nbsp;|&nbsp; MEM: 61%</span>
-      <span class="status-item" style="margin-left:auto; color: var(--faint)">v2.4.1-release</span>
-    </div> -->
   </div>
 </header>
 
@@ -705,9 +692,9 @@
       ◆ Linux-native &nbsp;·&nbsp; Low overhead &nbsp;·&nbsp; Real-time
     </div>
     <h1>
-      Dark, focused<br/>
-      visibility for every<br/>
-      <span class="hl">running</span> <span class="hl2">process.</span>
+    Real-time clarity<br/>
+    for every<br/>
+    <span class="hl">critical</span> <span class="hl2">process.</span>
     </h1>
     <p class="hero-sub">
       PulseScope gives operators and developers immediate insight into CPU and
@@ -717,20 +704,19 @@
 
     <div class="cta-row">
       <a id="start" class="btn btn-primary" href="../README.md">▶ Run Setup</a>
-      <!-- <a class="btn btn-ghost" href="../build/dashboard">Launch Binary</a> -->
     </div>
 
     <div class="metrics">
       <div class="metric">
-        <div class="metric-val">~1ms</div>
-        <div class="metric-label">Refresh latency</div>
+        <div class="metric-val">Live</div>
+        <div class="metric-label">Metric updates</div>
       </div>
       <div class="metric">
-        <div class="metric-val green">&lt;0.1%</div>
-        <div class="metric-label">CPU overhead</div>
+        <div class="metric-val green">Low</div>
+        <div class="metric-label">Monitor overhead</div>
       </div>
       <div class="metric">
-        <div class="metric-val">∞</div>
+        <div class="metric-val">Wide</div>
         <div class="metric-label">Process visibility</div>
       </div>
     </div>
@@ -990,7 +976,6 @@
       </div>
       <div class="cta-row" style="margin:0">
         <a class="btn btn-primary" href="../README.md">Open Setup Guide</a>
-        <a class="btn btn-ghost" href="../build/dashboard">Open App</a>
       </div>
     </div>
   </div>
@@ -1028,17 +1013,6 @@
     items.forEach(el => io.observe(el));
   }
 
-  /* animated process table — cycle CPU values subtly */
-  const cpuCells = document.querySelectorAll(".p-cpu");
-  setInterval(() => {
-    cpuCells.forEach(cell => {
-      const base = parseFloat(cell.dataset.base || cell.textContent);
-      cell.dataset.base = base;
-      const jitter = (Math.random() - 0.5) * 4;
-      const val = Math.max(0, base + jitter).toFixed(1);
-      cell.textContent = val;
-    });
-  }, 1800);
 </script>
 
 </body>

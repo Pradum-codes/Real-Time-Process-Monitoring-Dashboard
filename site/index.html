@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PulseScope | Real-Time Process Monitoring</title>
+  <meta name="description" content="Real-time process monitoring dashboard with live process table, system graphs, and watchlist-driven visibility." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg:       #05080f;
+      --surface:  #090d18;
+      --panel:    #0d1220;
+      --border:   rgba(255,255,255,0.07);
+      --border-hi:rgba(54,208,255,0.35);
+      --text:     #dde6f5;
+      --muted:    #6a7a9b;
+      --faint:    #2a3550;
+
+      --cyan:  #36d0ff;
+      --green: #39ffa0;
+      --red:   #ff5c5c;
+      --amber: #ffba36;
+
+      --mono: "Roboto Mono", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* ─── scanline overlay ─── */
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+    }
+
+    /* ─── grid bg ─── */
+    .bg-grid {
+      position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(54,208,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(54,208,255,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* ─── glows ─── */
+    .glow-tl, .glow-br {
+      position: fixed; border-radius: 50%; pointer-events: none; z-index: -1;
+      filter: blur(120px);
+    }
+    .glow-tl {
+      width: 600px; height: 400px;
+      top: -120px; left: -100px;
+      background: radial-gradient(ellipse, rgba(54,208,255,0.14) 0%, transparent 70%);
+    }
+    .glow-br {
+      width: 500px; height: 400px;
+      bottom: -80px; right: -80px;
+      background: radial-gradient(ellipse, rgba(57,255,160,0.10) 0%, transparent 70%);
+    }
+
+    /* ─── layout ─── */
+    .wrap {
+      width: min(1200px, 100% - 2.5rem);
+      margin-inline: auto;
+      position: relative; z-index: 1;
+    }
+
+    /* ─── nav ─── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.4rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-family: var(--mono);
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .logo em { color: var(--cyan); font-style: normal; }
+
+    .nav-right {
+      display: flex; align-items: center; gap: 2rem;
+    }
+
+    .nav-link {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 200ms;
+    }
+    .nav-link:hover { color: var(--text); }
+
+    .nav-cta {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      color: var(--bg);
+      background: var(--cyan);
+      border: none;
+      padding: 0.55rem 1.1rem;
+      cursor: pointer;
+      text-decoration: none;
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+      transition: background 200ms, transform 150ms;
+      display: inline-block;
+      font-weight: 700;
+    }
+    .nav-cta:hover { background: #7ce8ff; transform: translateY(-1px); }
+
+    /* ─── status bar ─── */
+    .status-bar {
+      display: flex; gap: 1.6rem; align-items: center;
+      padding: 0.45rem 0;
+      font-size: 0.72rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .status-item { display: flex; align-items: center; gap: 0.4rem; }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .dot.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ─── hero ─── */
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+      padding: 5rem 0 4rem;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex; gap: 0.5rem; align-items: center;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      border: 1px solid var(--border-hi);
+      background: rgba(54,208,255,0.06);
+      padding: 0.35rem 0.8rem;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 {
+      font-family: var(--mono);
+      font-weight: 800;
+      font-size: clamp(2rem, 4.5vw, 3.4rem);
+      line-height: 1.08;
+      letter-spacing: -0.01em;
+      margin-bottom: 1.4rem;
+    }
+    h1 .hl { color: var(--cyan); }
+    h1 .hl2 { color: var(--green); }
+
+    .hero-sub {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--muted);
+      max-width: 48ch;
+      margin-bottom: 2rem;
+    }
+
+    .cta-row {
+      display: flex; gap: 0.8rem; flex-wrap: wrap;
+      margin-bottom: 2.5rem;
+    }
+
+    .btn {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      padding: 0.7rem 1.4rem;
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      transition: all 200ms;
+    }
+    .btn-primary {
+      background: var(--cyan);
+      color: #030810;
+      font-weight: 700;
+      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    }
+    .btn-primary:hover { background: #7ce8ff; transform: translateY(-2px); }
+    .btn-ghost {
+      color: var(--text);
+      border: 1px solid var(--border);
+      background: transparent;
+    }
+    .btn-ghost:hover { border-color: var(--border-hi); color: var(--cyan); }
+
+    /* metrics strip */
+    .metrics {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--cyan);
+    }
+    .metric {
+      padding: 0.9rem 1rem;
+      border-right: 1px solid var(--border);
+    }
+    .metric:last-child { border-right: none; }
+    .metric-val {
+      font-family: var(--mono);
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--cyan);
+      letter-spacing: -0.02em;
+    }
+    .metric-val.green { color: var(--green); }
+    .metric-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 0.2rem;
+    }
+
+    /* ─── hero visual ─── */
+    .hero-visual {
+      position: relative;
+    }
+
+    .terminal {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--cyan);
+      overflow: hidden;
+    }
+
+    .terminal-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.55rem 1rem;
+      background: rgba(54,208,255,0.05);
+      border-bottom: 1px solid var(--border);
+    }
+    .terminal-dots { display: flex; gap: 0.4rem; }
+    .td { width: 9px; height: 9px; border-radius: 50%; }
+    .td-r { background: #ff5c5c; }
+    .td-y { background: #ffba36; }
+    .td-g { background: #39ffa0; }
+
+    .t-title {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    .terminal-body { padding: 1rem; }
+
+    /* fake process table */
+    .proc-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+    .proc-table th {
+      color: var(--muted); text-align: left; padding: 0.3rem 0.5rem;
+      font-weight: 400; letter-spacing: 0.06em; border-bottom: 1px solid var(--border);
+    }
+    .proc-table td { padding: 0.35rem 0.5rem; }
+    .proc-table tr { border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .proc-table tr:hover td { background: rgba(54,208,255,0.04); }
+    .p-name { color: var(--cyan); }
+    .p-pid  { color: var(--muted); }
+    .p-cpu  { color: var(--green); }
+    .p-cpu.hot { color: var(--amber); }
+    .p-cpu.burn { color: var(--red); animation: flicker 800ms ease-in-out infinite; }
+    .p-mem  { color: var(--text); }
+    .p-state { font-size: 0.65rem; letter-spacing: 0.06em; }
+    .badge {
+      display: inline-block; padding: 0.12rem 0.4rem;
+      background: rgba(57,255,160,0.12); color: var(--green);
+      border: 1px solid rgba(57,255,160,0.25);
+    }
+    .badge.sleep { background: rgba(106,122,155,0.12); color: var(--muted); border-color: var(--border); }
+    .badge.hot { background: rgba(255,186,54,0.12); color: var(--amber); border-color: rgba(255,186,54,0.3); }
+
+    @keyframes flicker {
+      0%,100% { opacity:1; } 45%,55% { opacity:0.5; }
+    }
+
+    /* mini sparkline */
+    .sparkbar {
+      display: flex; align-items: flex-end; gap: 2px; height: 24px;
+    }
+    .sp {
+      width: 4px;
+      background: var(--cyan);
+      opacity: 0.6;
+      border-radius: 1px 1px 0 0;
+      animation: grow-bar 2s ease-in-out infinite;
+    }
+
+    @keyframes grow-bar {
+      0%,100% { transform: scaleY(1); }
+      50% { transform: scaleY(0.6); }
+    }
+
+    /* floating stat card */
+    .float-card {
+      position: absolute;
+      right: -1.5rem;
+      bottom: 2rem;
+      background: var(--panel);
+      border: 1px solid var(--border-hi);
+      border-left: 3px solid var(--cyan);
+      padding: 0.8rem 1rem;
+      font-size: 0.72rem;
+      z-index: 2;
+      animation: float-up 4s ease-in-out infinite;
+      min-width: 170px;
+    }
+    @keyframes float-up {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .float-val { font-family: var(--mono); font-size: 1.3rem; font-weight: 800; color: var(--green); }
+    .float-lbl { color: var(--muted); margin-top: 0.2rem; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.65rem; }
+
+    /* ─── section ─── */
+    .section {
+      padding: 5rem 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-tag {
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 0.8rem;
+    }
+
+    h2 {
+      font-family: var(--mono);
+      font-weight: 800;
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      letter-spacing: -0.01em;
+      line-height: 1.05;
+      margin-bottom: 0.8rem;
+    }
+
+    .lead {
+      color: var(--muted); font-size: 0.9rem;
+      max-width: 56ch; line-height: 1.75;
+    }
+
+    /* ─── feature cards ─── */
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+
+    .feat {
+      background: var(--surface);
+      padding: 2rem 1.6rem;
+      position: relative;
+      transition: background 200ms;
+    }
+    .feat:hover { background: rgba(54,208,255,0.04); }
+    .feat::before {
+      content: "";
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 2px; background: transparent;
+      transition: background 200ms;
+    }
+    .feat:hover::before { background: var(--cyan); }
+
+    .feat-icon {
+      width: 38px; height: 38px;
+      border: 1px solid var(--border);
+      display: grid; place-items: center;
+      font-size: 1rem;
+      margin-bottom: 1.2rem;
+      background: var(--panel);
+    }
+
+    .feat h3 {
+      font-family: var(--mono);
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.55rem;
+      letter-spacing: -0.01em;
+    }
+
+    .feat p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .feat-num {
+      position: absolute;
+      top: 1.5rem; right: 1.5rem;
+      font-size: 0.65rem;
+      color: var(--border);
+      letter-spacing: 0.08em;
+    }
+
+    .screens-header {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      margin-bottom: 2rem;
+    }
+    .screen-badge {
+      font-size: 0.62rem; padding: 0.12rem 0.4rem;
+      background: rgba(54,208,255,0.15); color: var(--cyan);
+      border: 1px solid var(--border-hi);
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    .screens-layout {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .screen-main {
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--cyan);
+      background: var(--panel);
+      overflow: hidden;
+      margin-bottom: 0;
+    }
+    .screen-main-bar {
+      display: flex; align-items: center; gap: 0.8rem;
+      padding: 0.55rem 1rem;
+      background: rgba(54,208,255,0.05);
+      border-bottom: 1px solid var(--border);
+    }
+    .screen-main-img {
+      overflow: hidden;
+      line-height: 0;
+      aspect-ratio: 16 / 9;
+      background: var(--surface);
+    }
+    .screen-main-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+      filter: brightness(0.9) saturate(0.95);
+      transition: filter 400ms;
+    }
+    .screen-main:hover .screen-main-img img {
+      filter: brightness(1) saturate(1);
+    }
+
+    /* ─── duo screenshots ─── */
+    .screen-duo { display: contents; }
+    .screen-secondary {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: border-color 250ms;
+    }
+    .screen-main,
+    .screen-secondary {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+    .screen-secondary:hover { border-color: var(--border-hi); }
+    .screen-secondary-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.5rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .screen-img-wrap {
+      overflow: hidden;
+      line-height: 0;
+      background: var(--surface);
+      aspect-ratio: 16 / 9;
+    }
+    .screen-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+      filter: brightness(0.85) saturate(0.9);
+      transition: filter 350ms, transform 350ms;
+    }
+    .screen-secondary:hover .screen-img-wrap img {
+      filter: brightness(1) saturate(1);
+      transform: scale(1.02);
+    }
+    .screen-desc {
+      padding: 0.75rem 0.9rem;
+      display: flex; gap: 0.7rem; align-items: flex-start;
+      min-height: 84px;
+    }
+    .screen-desc p {
+      font-size: 0.76rem; color: var(--muted); line-height: 1.6; margin: 0;
+    }
+
+    /* ─── old screens-grid (remove) ─── */
+    .screens-grid { display: none; }
+    .screen { display: none; }
+    .screen-label { display: none; }
+
+
+    /* ─── workflow ─── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      position: relative;
+      margin-top: 3rem;
+    }
+    .steps::before {
+      content: "";
+      position: absolute;
+      top: 1.8rem; left: calc(100% / 6); right: calc(100% / 6);
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--faint), transparent);
+    }
+
+    .step {
+      padding: 0 2rem;
+      text-align: center;
+      position: relative;
+    }
+    .step:first-child { padding-left: 0; }
+    .step:last-child { padding-right: 0; }
+
+    .step-num {
+      width: 3.5rem; height: 3.5rem;
+      border: 1px solid var(--border-hi);
+      background: var(--panel);
+      display: grid; place-items: center;
+      margin: 0 auto 1.4rem;
+      font-family: var(--mono);
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--cyan);
+      position: relative;
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+    }
+
+    .step h3 {
+      font-family: var(--mono);
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+    }
+
+    .step p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* ─── CTA ─── */
+    .cta-section {
+      margin: 0 0 5rem;
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--cyan);
+      background: radial-gradient(ellipse at 15% 0%, rgba(54,208,255,0.08) 0%, transparent 55%),
+                  var(--surface);
+      padding: 3.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::after {
+      content: "PULSESCOPE";
+      position: absolute;
+      right: 2rem;
+      bottom: -1.5rem;
+      font-family: var(--mono);
+      font-weight: 800;
+      font-size: 8rem;
+      color: rgba(255,255,255,0.015);
+      letter-spacing: -0.04em;
+      user-select: none;
+    }
+
+    .cta-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 2rem; flex-wrap: wrap; position: relative; z-index: 1;
+    }
+
+    .cta-section h2 { margin-bottom: 0.4rem; }
+    .cta-section p { color: var(--muted); font-size: 0.88rem; }
+
+    /* ─── footer ─── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 0;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+    .stack-pills { display: flex; gap: 0.5rem; }
+    .sp-tag {
+      padding: 0.2rem 0.5rem;
+      border: 1px solid var(--border);
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      color: var(--faint);
+    }
+
+    /* ─── scroll reveal ─── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 500ms ease, transform 500ms ease;
+    }
+    .reveal.in { opacity: 1; transform: none; }
+
+    /* ─── responsive ─── */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; padding: 3rem 0 2.5rem; }
+      .feat-grid { grid-template-columns: 1fr 1fr; }
+      .steps { grid-template-columns: 1fr; gap: 2rem; }
+      .steps::before { display: none; }
+      .step { text-align: left; padding: 0; }
+      .step-num { margin: 0 0 1rem; }
+      .screens-layout { grid-template-columns: 1fr; }
+      .float-card { display: none; }
+    }
+
+    @media (max-width: 600px) {
+      .feat-grid { grid-template-columns: 1fr; }
+      .nav-right { gap: 1rem; }
+      .nav-link { display: none; }
+      .cta-inner { flex-direction: column; }
+      footer { flex-direction: column; gap: 1rem; text-align: center; }
+      .status-bar { flex-wrap: wrap; gap: 0.7rem; }
+      .cta-section { padding: 2rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="glow-tl" aria-hidden="true"></div>
+<div class="glow-br" aria-hidden="true"></div>
+
+<!-- ──────────────── NAV ──────────────── -->
+<header>
+  <div class="wrap">
+    <nav class="reveal">
+      <div class="logo">Pulse<em>Scope</em></div>
+      <div class="nav-right">
+        <a class="nav-link" href="#features">Features</a>
+        <a class="nav-link" href="#workflow">Workflow</a>
+        <a class="nav-link" href="../README.md">Docs</a>
+        <a class="nav-cta" href="#start">Get Started</a>
+      </div>
+    </nav>
+
+    <!-- <div class="status-bar reveal">
+      <span class="status-item"><span class="dot"></span> System Online</span>
+      <span class="status-item"><span class="dot amber"></span> 128 Processes</span>
+      <span class="status-item">CPU: 34% &nbsp;|&nbsp; MEM: 61%</span>
+      <span class="status-item" style="margin-left:auto; color: var(--faint)">v2.4.1-release</span>
+    </div> -->
+  </div>
+</header>
+
+<!-- ──────────────── HERO ──────────────── -->
+<section class="wrap hero">
+
+  <div class="reveal">
+    <div class="hero-eyebrow">
+      ◆ Linux-native &nbsp;·&nbsp; Low overhead &nbsp;·&nbsp; Real-time
+    </div>
+    <h1>
+      Dark, focused<br/>
+      visibility for every<br/>
+      <span class="hl">running</span> <span class="hl2">process.</span>
+    </h1>
+    <p class="hero-sub">
+      PulseScope gives operators and developers immediate insight into CPU and
+      memory behavior, active process load, and watchlist alerts — from a single
+      tight dashboard.
+    </p>
+
+    <div class="cta-row">
+      <a id="start" class="btn btn-primary" href="../README.md">▶ Run Setup</a>
+      <!-- <a class="btn btn-ghost" href="../build/dashboard">Launch Binary</a> -->
+    </div>
+
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-val">~1ms</div>
+        <div class="metric-label">Refresh latency</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val green">&lt;0.1%</div>
+        <div class="metric-label">CPU overhead</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">∞</div>
+        <div class="metric-label">Process visibility</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- terminal mockup -->
+  <div class="hero-visual reveal">
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dots">
+          <span class="td td-r"></span>
+          <span class="td td-y"></span>
+          <span class="td td-g"></span>
+        </div>
+        <span class="t-title">pulsescope — process monitor</span>
+        <span style="font-size:0.65rem; color:var(--muted)">CPU 34% · MEM 4.2G</span>
+      </div>
+      <div class="terminal-body">
+        <!-- sparkline row -->
+        <div style="margin-bottom:0.9rem; display:flex; gap:2rem; align-items:flex-end;">
+          <div>
+            <div style="font-size:0.65rem;color:var(--muted);margin-bottom:0.3rem;letter-spacing:0.06em">CPU HISTORY</div>
+            <div class="sparkbar">
+              <div class="sp" style="height:40%;animation-delay:0s"></div>
+              <div class="sp" style="height:65%;animation-delay:0.1s"></div>
+              <div class="sp" style="height:50%;animation-delay:0.2s"></div>
+              <div class="sp" style="height:80%;animation-delay:0.3s"></div>
+              <div class="sp" style="height:55%;animation-delay:0.4s"></div>
+              <div class="sp" style="height:70%;animation-delay:0.5s"></div>
+              <div class="sp" style="height:90%;animation-delay:0.6s"></div>
+              <div class="sp" style="height:60%;animation-delay:0.7s"></div>
+              <div class="sp" style="height:75%;animation-delay:0.8s"></div>
+              <div class="sp" style="height:45%;animation-delay:0.9s"></div>
+              <div class="sp" style="height:85%;animation-delay:1.0s"></div>
+              <div class="sp" style="height:100%;animation-delay:1.1s;background:var(--green)"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:0.65rem;color:var(--muted);margin-bottom:0.3rem;letter-spacing:0.06em">MEM HISTORY</div>
+            <div class="sparkbar">
+              <div class="sp" style="height:60%;animation-delay:0.15s;background:var(--green)"></div>
+              <div class="sp" style="height:62%;animation-delay:0.25s;background:var(--green)"></div>
+              <div class="sp" style="height:65%;animation-delay:0.35s;background:var(--green)"></div>
+              <div class="sp" style="height:68%;animation-delay:0.45s;background:var(--green)"></div>
+              <div class="sp" style="height:70%;animation-delay:0.55s;background:var(--green)"></div>
+              <div class="sp" style="height:72%;animation-delay:0.65s;background:var(--amber)"></div>
+              <div class="sp" style="height:75%;animation-delay:0.75s;background:var(--amber)"></div>
+              <div class="sp" style="height:74%;animation-delay:0.85s;background:var(--amber)"></div>
+              <div class="sp" style="height:76%;animation-delay:0.95s;background:var(--amber)"></div>
+              <div class="sp" style="height:78%;animation-delay:1.05s;background:var(--amber)"></div>
+              <div class="sp" style="height:80%;animation-delay:1.15s;background:var(--amber)"></div>
+              <div class="sp" style="height:83%;animation-delay:1.25s;background:var(--red)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- process table -->
+        <table class="proc-table">
+          <thead>
+            <tr>
+              <th>PROCESS</th>
+              <th>PID</th>
+              <th>CPU%</th>
+              <th>MEM</th>
+              <th>STATE</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="p-name">nginx</td>
+              <td class="p-pid">1042</td>
+              <td class="p-cpu">2.1</td>
+              <td class="p-mem">48 MB</td>
+              <td class="p-state"><span class="badge">RUNNING</span></td>
+            </tr>
+            <tr>
+              <td class="p-name">postgres</td>
+              <td class="p-pid">2291</td>
+              <td class="p-cpu hot">18.4</td>
+              <td class="p-mem">512 MB</td>
+              <td class="p-state"><span class="badge hot">HIGH</span></td>
+            </tr>
+            <tr>
+              <td class="p-name">node</td>
+              <td class="p-pid">3811</td>
+              <td class="p-cpu burn">94.2</td>
+              <td class="p-mem">1.1 GB</td>
+              <td class="p-state"><span class="badge hot">WATCH</span></td>
+            </tr>
+            <tr>
+              <td class="p-name">sshd</td>
+              <td class="p-pid">921</td>
+              <td class="p-cpu">0.0</td>
+              <td class="p-mem">6 MB</td>
+              <td class="p-state"><span class="badge sleep">SLEEP</span></td>
+            </tr>
+            <tr>
+              <td class="p-name">systemd</td>
+              <td class="p-pid">1</td>
+              <td class="p-cpu">0.3</td>
+              <td class="p-mem">12 MB</td>
+              <td class="p-state"><span class="badge">RUNNING</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="float-card">
+      <div class="float-val">PID 3811</div>
+      <div class="float-lbl">⚠ Watchlist Alert</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ──────────────── FEATURES ──────────────── -->
+<section id="features" class="section wrap reveal">
+  <div class="section-tag"> 01 — Capabilities</div>
+  <h2>What you can monitor<br/>immediately.</h2>
+  <p class="lead">Everything you need, nothing you don't. PulseScope exposes the right signals at the right moment.</p>
+
+  <div class="feat-grid">
+    <div class="feat">
+      <span class="feat-num">01</span>
+      <div class="feat-icon">⎉</div>
+      <h3>Unified Dashboard</h3>
+      <p>Live process and system status from a single cockpit. One glance tells you everything you need for faster triage.</p>
+    </div>
+    <div class="feat">
+      <span class="feat-num">02</span>
+      <div class="feat-icon">◈</div>
+      <h3>Graph Views</h3>
+      <p>Track trend shifts over time. Catch pressure build-up before it becomes an incident with rolling CPU and memory charts.</p>
+    </div>
+    <div class="feat">
+      <span class="feat-num">03</span>
+      <div class="feat-icon">◎</div>
+      <h3>Watchlist Tab</h3>
+      <p>Pin critical workloads. Keep an always-on eye on key PIDs and receive in-app alerts when thresholds are crossed.</p>
+    </div>
+    <div class="feat">
+      <span class="feat-num">04</span>
+      <div class="feat-icon">⊞</div>
+      <h3>Process Control</h3>
+      <p>Kill, renice, or inspect processes without leaving the UI. Actions are applied immediately with root-level precision.</p>
+    </div>
+    <div class="feat">
+      <span class="feat-num">05</span>
+      <div class="feat-icon">⟳</div>
+      <h3>Real-time Refresh</h3>
+      <p>Sub-millisecond metric refresh pulled directly from /proc. No polling lag, no stale data — just the current truth.</p>
+    </div>
+    <div class="feat">
+      <span class="feat-num">06</span>
+      <div class="feat-icon">▤</div>
+      <h3>Low Overhead</h3>
+      <p>Built in C++ with OpenGL rendering. PulseScope uses under 0.1% CPU itself, so monitoring never becomes the bottleneck.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────── SCREENSHOTS ──────────────── -->
+<section class="section wrap reveal">
+  <div class="screens-header">
+    <div>
+      <div class="section-tag">02 — Interface</div>
+      <h2>See the dashboard<br/>in action.</h2>
+    </div>
+  </div>
+
+  <div class="screens-layout">
+    <!-- main screenshot -->
+    <div class="screen-main">
+      <div class="screen-main-bar">
+        <div class="terminal-dots">
+          <span class="td td-r"></span>
+          <span class="td td-y"></span>
+          <span class="td td-g"></span>
+        </div>
+        <span class="t-title">pulsescope — unified dashboard</span>
+        <span class="screen-badge">LIVE</span>
+      </div>
+      <div class="screen-main-img">
+        <img src="./public/dashboaard.png" alt="Main process monitoring dashboard" />
+      </div>
+      <div class="screen-desc">
+        <span class="screen-badge">CORE</span>
+        <p>Unified view for process load, CPU, memory, and active host health in one cockpit.</p>
+      </div>
+    </div>
+
+    <!-- secondary screenshots -->
+    <div class="screen-duo">
+      <div class="screen-secondary">
+      <div class="screen-secondary-bar">
+        <span style="color:var(--muted);font-size:0.68rem;letter-spacing:0.06em">GRAPH VIEW</span>
+        <span style="font-size:0.65rem;color:var(--faint)">cpu · memory trends</span>
+      </div>
+      <div class="screen-img-wrap">
+        <img src="./public/graph.png" alt="System graph and trend view" />
+      </div>
+      <div class="screen-desc">
+        <span class="screen-badge">GRAPH</span>
+        <p>Track CPU and memory trends over time. Catch pressure build-up before it becomes an incident.</p>
+      </div>
+    </div>
+      <div class="screen-secondary">
+        <div class="screen-secondary-bar">
+          <span style="color:var(--muted);font-size:0.68rem;letter-spacing:0.06em">WATCHLIST TAB</span>
+          <span style="font-size:0.65rem;color:var(--faint)">pinned pids · alerts</span>
+        </div>
+        <div class="screen-img-wrap">
+          <img src="./public/watchlist.png" alt="Watchlist tab" />
+        </div>
+        <div class="screen-desc">
+          <span class="screen-badge">WATCH</span>
+          <p>Pin critical workloads and keep an always-on eye on key process behavior.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────── WORKFLOW ──────────────── -->
+<section id="workflow" class="section wrap reveal">
+  <div class="section-tag">03 — Workflow</div>
+  <h2>Operational loop.</h2>
+  <p class="lead">A practical, repeatable flow for local diagnostics and live incident response.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3>Start Dashboard</h3>
+      <p>Build with CMake and launch the binary. PulseScope connects instantly with real host metrics via /proc.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3>Observe Spikes</h3>
+      <p>Use process and graph views to isolate sudden CPU or memory anomalies before they cascade.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3>Take Action</h3>
+      <p>Prioritize watchlisted processes and respond instantly with in-app kill, renice, or inspect controls.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────── CTA ──────────────── -->
+<div class="wrap">
+  <div class="cta-section reveal">
+    <div class="cta-inner">
+      <div>
+        <h2>Built for quick signal,<br/>not dashboard noise.</h2>
+        <p>Dark by design. Mono by default. Zero-friction process intelligence.</p>
+      </div>
+      <div class="cta-row" style="margin:0">
+        <a class="btn btn-primary" href="../README.md">Open Setup Guide</a>
+        <a class="btn btn-ghost" href="../build/dashboard">Open App</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ──────────────── FOOTER ──────────────── -->
+<footer class="wrap">
+  <span>© 2026 PulseScope &nbsp;·&nbsp; Real-Time Process Monitor</span>
+  <div class="stack-pills">
+    <span class="sp-tag">C++</span>
+    <span class="sp-tag">ImGui</span>
+    <span class="sp-tag">OpenGL</span>
+    <span class="sp-tag">GLFW</span>
+    <span class="sp-tag">Linux</span>
+  </div>
+</footer>
+
+<script>
+  /* scroll reveal */
+  const pref = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const items = document.querySelectorAll(".reveal");
+
+  if (pref) {
+    items.forEach(el => el.classList.add("in"));
+  } else {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          e.target.style.transitionDelay = `${Math.min(i * 60, 180)}ms`;
+          e.target.classList.add("in");
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    items.forEach(el => io.observe(el));
+  }
+
+  /* animated process table — cycle CPU values subtly */
+  const cpuCells = document.querySelectorAll(".p-cpu");
+  setInterval(() => {
+    cpuCells.forEach(cell => {
+      const base = parseFloat(cell.dataset.base || cell.textContent);
+      cell.dataset.base = base;
+      const jitter = (Math.random() - 0.5) * 4;
+      const val = Math.max(0, base + jitter).toFixed(1);
+      cell.textContent = val;
+    });
+  }, 1800);
+</script>
+
+</body>
+</html>
